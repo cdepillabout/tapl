@@ -17,15 +17,7 @@ data Term a = TermTrue a
     deriving (Eq, Functor, Generic, Ord, Read, Show)
 
 data Command a = Eval a (Term a)
-
--- instance Functor Term where
---     fmap f (TermTrue a) = TermTrue $ f a
---     fmap f (TermFalse a) = TermTrue $ f a
---     fmap f (TermTrue a) = TermTrue $ f a
---     fmap f (TermTrue a) = TermTrue $ f a
---     fmap f (TermTrue a) = TermTrue $ f a
---     fmap f (TermTrue a) = TermTrue $ f a
---     fmap f (TermTrue a) = TermTrue $ f a
+    deriving (Eq, Functor, Generic, Ord, Read, Show)
 
 instance Comonad Term where
     extract :: Term a -> a

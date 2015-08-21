@@ -15,9 +15,12 @@ type MyParser a = forall s m . (Monad m, Stream s m Char) => ParsecT s () m a
 parser :: MyParser [Command SourcePos]
 parser = do
     spaces
-    commands <- many $ (try comment *> command <* char ';')
+    commands <- many $ (commentOrCommand <* char ';')
     eof
     return commands
+  where
+    commentOrCommand :: MyParser (Command SourcePos)
+    commentOrCommand = trycomment *> command
 
 comment :: MyParser ()
 comment = do

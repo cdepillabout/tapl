@@ -3,8 +3,9 @@
 
 module Parser where
 
+import Control.Monad (void)
 import Text.Parsec (
-    (<|>), Parsec, ParsecT, SourcePos, Stream, anyChar, char, eof,
+    (<|>), Parsec, ParsecT, SourcePos, Stream, anyChar, char, choice, eof,
     getPosition, many, manyTill, spaces, string, try,
     )
 
@@ -12,29 +13,45 @@ import Types
 
 type MyParser a = forall s m . (Monad m, Stream s m Char) => ParsecT s () m a
 
-parser :: MyParser [Command SourcePos]
+parser :: MyParser [Maybe (Command SourcePos)]
 parser = do
     spaces
-    commands <- many $ (commentOrCommand <* char ';')
-    eof
+    commands <- many commentOrCommand
+    spaces
     return commands
   where
-    commentOrCommand :: MyParser (Command SourcePos)
-    commentOrCommand = trycomment *> command
+    commentOrCommand :: MyParser (Maybe (Command SourcePos))
+    commentOrCommand = try comment <|> command
 
-comment :: MyParser ()
+comment :: MyParser (Maybe (Command SourcePos))
 comment = do
-    string "/*"
-    manyTill anyChar (try (string "*/"))
+    void $ string "/*"
+    void $ manyTill anyChar (try (string "*/"))
     spaces
+    return Nothing
 
-command :: MyParser (Command SourcePos)
+command :: MyParser (Maybe (Command SourcePos))
 command = do
-    com <- Eval <$> getPosition <*> term
+    pos <- getPosition
+    term' <- term
     spaces
-    return com
+    void $ char ';'
+    spaces
+    return . Just $ Eval pos term'
 
 term :: MyParser (Term SourcePos)
-term = undefined
+term = choice [ trueTerm
+              , falseTerm
+              ]
 
+trueTerm :: MyParser (Term SourcePos)
+trueTerm = do
+    pos <- getPosition
+    void $ string "true"
+    return $ TermTrue pos
 
+falseTerm :: MyParser (Term SourcePos)
+falseTerm = do
+    pos <- getPosition
+    void $ string "false"
+    return $ TermFalse pos

@@ -4,6 +4,7 @@
 module Parser where
 
 import Control.Monad (void)
+import Data.Maybe (catMaybes)
 import Text.Parsec (
     (<|>), Parsec, ParsecT, SourcePos, Stream, anyChar, between, char,
     choice, eof, getPosition, many, manyTill, optional, spaces, string,
@@ -14,13 +15,13 @@ import Types
 
 type MyParser a = forall s m . (Monad m, Stream s m Char) => ParsecT s () m a
 
-parser :: MyParser [Maybe (Command SourcePos)]
+parser :: MyParser [Command SourcePos]
 parser = do
     spaces
     commands <- many commentOrCommand
     spaces
     eof
-    return commands
+    return $ catMaybes commands
   where
     commentOrCommand :: MyParser (Maybe (Command SourcePos))
     commentOrCommand = try comment <|> command

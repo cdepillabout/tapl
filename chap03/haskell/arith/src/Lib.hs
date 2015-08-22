@@ -5,13 +5,15 @@ import Text.Parsec (SourcePos, parse)
 import Eval
 import Options
 import Parser
+import Printer
 import Types
 
 doCommands :: [Command SourcePos] -> IO ()
 doCommands commands = do
     let evaledCommands = evalCommands commands
     putStrLn "Evaluated:"
-    print evaledCommands
+    -- print evaledCommands
+    prettyPrintCommands evaledCommands
 
 defaultMain :: IO ()
 defaultMain = do

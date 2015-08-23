@@ -10,3 +10,4 @@ iszero (pred (succ (succ 0)));
 
 pred (succ (iszero 0));
 false;
+if 0 then true else false;

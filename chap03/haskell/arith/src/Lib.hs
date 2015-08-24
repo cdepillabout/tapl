@@ -4,7 +4,8 @@ import Text.Parsec (SourcePos, parse)
 
 import Eval
 import Options
-import Parser
+-- import Parser (parser)
+import Parser2 (parser)
 import Printer
 import Types
 

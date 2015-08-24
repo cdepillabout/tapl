@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Parser (parser) where
+module Parser2 (parser) where
 
 import Control.Monad (void)
 import Data.Maybe (catMaybes)

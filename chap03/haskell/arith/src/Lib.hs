@@ -15,33 +15,14 @@ doCommands commands = do
     putStrLn "Evaluated:"
     prettyPrintCommands evaledCommands
 
-defaultMainReal :: IO ()
-defaultMainReal = do
-    filePath <- getFile
-    fileContents <- readFile filePath
-    putStrLn "Input file: "
-    putStrLn fileContents
-    putStrLn ""
-    let eitherCommands = parse parser filePath fileContents
-    putStrLn "Parsed: "
-    case eitherCommands of
-        Right commands -> do
-            print commands
-            putStrLn ""
-            doCommands commands
-        Left err -> print err
-
 defaultMain :: IO ()
--- defaultMain = defaultMainReal
-defaultMain = defaultMainTest
-
-defaultMainTest :: IO ()
-defaultMainTest = do
+defaultMain = do
     filePath <- getFile
     fileContents <- readFile filePath
     putStrLn "Input file: "
     putStrLn fileContents
     putStrLn ""
+    -- let eitherCommands = parse parser filePath fileContents
     eitherCommands <- runParserT parser2 () filePath fileContents
     putStrLn "Parsed: "
     case eitherCommands of

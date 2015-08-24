@@ -4,13 +4,10 @@
 module Parser2 (parser2) where
 
 import Prelude hiding (succ, pred)
-import Control.Monad (void)
-import Control.Monad.IO.Class (MonadIO, liftIO)
-import Data.Maybe (catMaybes)
+import Control.Monad.IO.Class (MonadIO)
 import Text.Parsec (
-    (<|>), Parsec, ParsecT, SourcePos, Stream, alphaNum, anyChar, between,
-    char, choice, eof, getPosition, letter, many, manyTill, oneOf,
-    optional, spaces, string, try,
+    (<|>), ParsecT, SourcePos, Stream, alphaNum, char, choice, eof,
+    getPosition, many, oneOf, try,
     )
 import qualified Text.Parsec.Token as Token
 
@@ -91,24 +88,17 @@ noArgs :: String -> MyParser ()
 noArgs = myIdent
 
 oneArg :: String -> (Term () -> Term ()) -> MyParser (Term ())
-oneArg string termConstructor = do
-    noArgs string
-    t <- term
-    return $ termConstructor t
+oneArg string termConstructor = fmap termConstructor $ noArgs string *> term
 
 threeArgs :: String
           -> String
           -> String
           -> (Term () -> Term () -> Term () -> Term ())
           -> MyParser (Term ())
-threeArgs string1 string2 string3 termConstructor = do
-    noArgs string1
-    t1 <- term
-    noArgs string2
-    t2 <- term
-    noArgs string3
-    t3 <- term
-    return $ termConstructor t1 t2 t3
+threeArgs string1 string2 string3 termConstructor =
+    termConstructor <$> (noArgs string1 *> term)
+                    <*> (noArgs string2 *> term)
+                    <*> (noArgs string3 *> term)
 
 ---------------
 -- my parser --
@@ -139,28 +129,19 @@ addSourcePos :: (SourcePos -> MyParser (Term SourcePos)) -> MyParser (Term Sourc
 addSourcePos f = f =<< getPosition
 
 term :: MyParser (Term ())
-term =
-    choice $
-        fmap try [ parens term
-                 , ifthenelse
-                 , succ
-                 , pred
-                 , iszero
-                 , zero
-                 , true
-                 , false
-                 ]
+term = choice $ fmap try [ parens term
+                         , ifthenelse
+                         , succ
+                         , pred
+                         , iszero
+                         , zero
+                         , true
+                         , false
+                         ]
 
 command :: MyParser (Command ())
-command = do
-    t <- term
-    semi
-    return $ Eval () t
+command = Eval () <$> term <* semi
 
 parser2 :: MyParser [Command ()]
-parser2 = do
-    whiteSpace
-    commands <- many command
-    eof
-    return commands
+parser2 = whiteSpace *> many command <* eof
 

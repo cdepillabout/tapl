@@ -6,9 +6,8 @@ module Parser (parser) where
 import Control.Monad (void)
 import Data.Maybe (catMaybes)
 import Text.Parsec (
-    (<|>), Parsec, ParsecT, SourcePos, Stream, anyChar, between, char,
-    choice, eof, getPosition, many, manyTill, optional, spaces, string,
-    try,
+    (<|>), ParsecT, SourcePos, Stream, anyChar, between, char, choice, eof,
+    getPosition, many, manyTill, spaces, string, try,
     )
 
 import Types

@@ -6,12 +6,14 @@ module Parser2 (parser) where
 import Control.Monad (void)
 import Data.Maybe (catMaybes)
 import Text.Parsec (
-    (<|>), Parsec, ParsecT, SourcePos, Stream, anyChar, between, char,
-    choice, eof, getPosition, many, manyTill, optional, spaces, string,
-    try,
+    (<|>), GenLanguageDef(..), Parsec, ParsecT, SourcePos, Stream, anyChar,
+    between, char, choice, eof, getPosition, many, manyTill, optional,
+    spaces, string, try,
     )
 
 import Types
+
+
 
 type MyParser a = forall s m . (Monad m, Stream s m Char) => ParsecT s () m a
 

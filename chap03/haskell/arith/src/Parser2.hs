@@ -1,114 +1,166 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Parser2 (parser) where
+module Parser2 (parser2) where
 
+import Prelude hiding (succ, pred)
 import Control.Monad (void)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Maybe (catMaybes)
 import Text.Parsec (
-    (<|>), GenLanguageDef(..), Parsec, ParsecT, SourcePos, Stream, anyChar,
-    between, char, choice, eof, getPosition, many, manyTill, optional,
-    spaces, string, try,
+    (<|>), Parsec, ParsecT, SourcePos, Stream, alphaNum, anyChar, between,
+    char, choice, eof, getPosition, letter, many, manyTill, oneOf,
+    optional, spaces, string, try,
     )
+import qualified Text.Parsec.Token as Token
 
 import Types
 
+-------------------------
+-- parser type synonym --
+-------------------------
 
+type MyParser a = forall s u m . (MonadIO m, Monad m, Stream s m Char) => ParsecT s u m a
 
-type MyParser a = forall s m . (Monad m, Stream s m Char) => ParsecT s () m a
+-------------------------
+-- language definition --
+-------------------------
 
-parser :: MyParser [Command SourcePos]
-parser = do
-    spaces
-    commands <- many commentOrCommand
-    spaces
-    eof
-    return $ catMaybes commands
-  where
-    commentOrCommand :: MyParser (Maybe (Command SourcePos))
-    commentOrCommand = try comment <|> command
+langDef :: (Monad m, Stream s m Char) => Token.GenLanguageDef s u m
+langDef = Token.LanguageDef
+            { Token.commentStart    = "/*"
+            , Token.commentEnd      = "*/"
+            , Token.commentLine     = ""
+            , Token.nestedComments  = True
+            -- , Token.identStart      = letter <|> char '_'
+            , Token.identStart      = alphaNum <|> char '_'
+            , Token.identLetter     = alphaNum <|> oneOf "_'"
+            , Token.opStart         = Token.opLetter langDef
+            , Token.opLetter        = oneOf ":!#$%&*+./<=>?@\\^|-~"
+            , Token.reservedOpNames = []
+            , Token.reservedNames   = {- [ "0"
+                                      , "true"
+                                      , "false"
+                                      , "succ"
+                                      , "pred"
+                                      , "iszero"
+                                      ] -} []
+            , Token.caseSensitive   = True
+            }
 
-comment :: MyParser (Maybe (Command SourcePos))
-comment = do
-    void $ string "/*"
-    void $ manyTill anyChar (try (string "*/"))
-    spaces
-    return Nothing
+lexer :: (Monad m, Stream s m Char) => Token.GenTokenParser s u m
+lexer = Token.makeTokenParser langDef
 
-command :: MyParser (Maybe (Command SourcePos))
+--------------------------------------
+-- parsec language helper functions --
+--------------------------------------
+
+identifier :: MyParser String
+identifier = Token.identifier lexer
+
+reserved :: String -> MyParser ()
+reserved = Token.reserved lexer
+
+lexeme :: MyParser a -> MyParser a
+lexeme = Token.lexeme lexer
+
+symbol :: String -> MyParser String
+symbol = Token.symbol lexer
+
+semi :: MyParser String
+semi = Token.semi lexer
+
+parens :: MyParser a -> MyParser a
+parens = Token.parens lexer
+
+whiteSpace :: MyParser ()
+whiteSpace = Token.whiteSpace lexer
+
+-------------------------
+-- my helper functions --
+-------------------------
+
+myIdent :: String -> MyParser ()
+myIdent string = do
+    ident <- identifier
+    if ident == string
+        then return ()
+        else fail $ "Expecting " ++ string
+
+noArgs :: String -> MyParser ()
+noArgs = myIdent
+
+oneArg :: String -> (Term () -> Term ()) -> MyParser (Term ())
+oneArg string termConstructor = do
+    noArgs string
+    t <- term
+    return $ termConstructor t
+
+threeArgs :: String
+          -> String
+          -> String
+          -> (Term () -> Term () -> Term () -> Term ())
+          -> MyParser (Term ())
+threeArgs string1 string2 string3 termConstructor = do
+    noArgs string1
+    t1 <- term
+    noArgs string2
+    t2 <- term
+    noArgs string3
+    t3 <- term
+    return $ termConstructor t1 t2 t3
+
+---------------
+-- my parser --
+---------------
+
+zero :: MyParser (Term ())
+zero = noArgs "0" *> return (TermZero ())
+
+true :: MyParser (Term ())
+true = noArgs "true" *> return (TermTrue ())
+
+false :: MyParser (Term ())
+false = noArgs "false" *> return (TermFalse ())
+
+succ :: MyParser (Term ())
+succ = oneArg "succ" $ TermSucc ()
+
+pred :: MyParser (Term ())
+pred = oneArg "pred" $ TermPred ()
+
+iszero :: MyParser (Term ())
+iszero = oneArg "iszero" $ TermIsZero ()
+
+ifthenelse :: MyParser (Term ())
+ifthenelse = threeArgs "if" "then" "else" $ TermIf ()
+
+addSourcePos :: (SourcePos -> MyParser (Term SourcePos)) -> MyParser (Term SourcePos)
+addSourcePos f = f =<< getPosition
+
+term :: MyParser (Term ())
+term =
+    choice $
+        fmap try [ parens term
+                 , ifthenelse
+                 , succ
+                 , pred
+                 , iszero
+                 , zero
+                 , true
+                 , false
+                 ]
+
+command :: MyParser (Command ())
 command = do
-    pos <- getPosition
-    term' <- term
-    spaces
-    void $ char ';'
-    spaces
-    return . Just $ Eval pos term'
+    t <- term
+    semi
+    return $ Eval () t
 
-term :: MyParser (Term SourcePos)
-term = do
-    spaces
-    t <- choice [ try $ between (char '(') (char ')') term
-                , nonParenTerm
-                ]
-    spaces
-    return t
+parser2 :: MyParser [Command ()]
+parser2 = do
+    whiteSpace
+    commands <- many command
+    eof
+    return commands
 
-nonParenTerm :: MyParser (Term SourcePos)
-nonParenTerm = do
-    spaces
-    t <- choice $ fmap try [ trueTerm
-                           , falseTerm
-                           , zeroTerm
-                           , predTerm
-                           , succTerm
-                           , isZeroTerm
-                           , ifThenElseTerm
-                           ]
-    spaces
-    return t
-
-simpleTerm :: (SourcePos -> Term SourcePos)
-           -> MyParser a
-           -> MyParser (Term SourcePos)
-simpleTerm termConstructor termParser = do
-    pos <- getPosition
-    void termParser
-    return $ termConstructor pos
-
-oneArg :: (SourcePos -> Term SourcePos -> Term SourcePos)
-       -> MyParser a
-       -> MyParser (Term SourcePos)
-oneArg termConstructor termParser = do
-    pos <- getPosition
-    void termParser
-    subTerm <- term
-    return $ termConstructor pos subTerm
-
-trueTerm :: MyParser (Term SourcePos)
-trueTerm = simpleTerm TermTrue $ string "true"
-
-falseTerm :: MyParser (Term SourcePos)
-falseTerm = simpleTerm TermFalse $ string "false"
-
-zeroTerm :: MyParser (Term SourcePos)
-zeroTerm = simpleTerm TermZero $ string "0"
-
-predTerm :: MyParser (Term SourcePos)
-predTerm = oneArg TermPred $ string "pred"
-
-succTerm :: MyParser (Term SourcePos)
-succTerm = oneArg TermSucc $ string "succ"
-
-isZeroTerm :: MyParser (Term SourcePos)
-isZeroTerm = oneArg TermIsZero $ string "iszero"
-
-ifThenElseTerm :: MyParser (Term SourcePos)
-ifThenElseTerm = do
-    pos <- getPosition
-    void $ string "if"
-    subTerm1 <- term
-    void $ string "then"
-    subTerm2 <- term
-    void $ string "else"
-    subTerm3 <- term
-    return $ TermIf pos subTerm1 subTerm2 subTerm3

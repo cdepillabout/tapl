@@ -13,7 +13,6 @@ doCommands :: Eq a => [Command a] -> IO ()
 doCommands commands = do
     let evaledCommands = evalCommands commands
     putStrLn "Evaluated:"
-    -- print evaledCommands
     prettyPrintCommands evaledCommands
 
 defaultMainReal :: IO ()
@@ -49,4 +48,5 @@ defaultMainTest = do
         Right commands -> do
             print commands
             putStrLn ""
+            doCommands commands
         Left err -> print err

@@ -19,3 +19,11 @@ cabal.sandbox.config
 # ocaml output file types
 *.cmi
 *.cmo
+
+# ocaml files
+# (Is it really okay to add these?)
+f
+lexer.ml
+parser.ml
+parser.mli
+parser.output
